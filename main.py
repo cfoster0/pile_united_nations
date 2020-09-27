@@ -18,24 +18,24 @@ def scrape_pdf_list(indices):
 
     base_url = 'https://digitallibrary.un.org/record/'
 
-    print("Processing indices from ", indices[0], "to ", indices[-1])
+    print("Checking UN Library for PDFs at indices ", indices[0], "to ", indices[-1], "...")
 
-    return [str(index) + '\n' for index in indices], [base_url + '\n' for _ in indices]
+    return [str(index) + '\n' for index in indices], [base_url + index + '\n' for index in indices]
 
 def scrape_pdf(url):
-    return None
+    return './pdfs'
 
 def scrape_pdfs(url_list):
     return [scrape_pdf(url) for url in url_list]
 
 def process_pdf(pdf):
-    return None, None
+    return '', None
 
 def process_pdfs(pdf_list, archive):
     for pdf in pdf_list:
         text, meta = process_pdf(pdf)
-        ar.add_data(text, meta=meta)
-        ar.commit()
+        #archive.add_data(text, meta=meta)
+        #archive.commit()
     return archive
 
 def process(start=MIN_RECORD_NUMBER, end=MAX_RECORD_NUMBER, batch_size=2**16):
@@ -45,10 +45,15 @@ def process(start=MIN_RECORD_NUMBER, end=MAX_RECORD_NUMBER, batch_size=2**16):
     except:
         watermark = start
 
+    try:
+        with open("urls.dat", "r") as uf:
+            url_list = uf.readlines()
+    except:
+        url_list = []
+
     record_indices = [number for number in range(max(start, watermark), end)]
 
     with open("counts.dat", "a+") as cf, open("urls.dat", "a+") as uf:
-        url_list = []
         index_batches = chunks(record_indices, batch_size)
         for batch in index_batches:
             batch_index_list, batch_url_list = scrape_pdf_list(batch)
@@ -56,16 +61,26 @@ def process(start=MIN_RECORD_NUMBER, end=MAX_RECORD_NUMBER, batch_size=2**16):
             uf.writelines(batch_url_list)
             url_list.extend(batch_url_list)
 
-    with open("downloads.dat", "a+") as df, open("processed.dat", "a+") as pf:
-        pdf_list = []
-        url_batches = chunks(url_list, batch_size)
-        for batch in url_batches:
-            batch_pdf_list = scrape_pdfs(batch)
-            df.writelines(batch_pdf_list)
-            pdf_list.extend(batch_pdf_list)
+    try:
+        with open("processed.dat", "r") as pf:
+            last_processed = pf.readlines()[-1]
+    except:
+        last_processed = None
+
+    if last_processed:
+        last_processed_index = url_list.index(last_processed)
+        url_list = url_list[last_processed_index + 1:]
+
+    archive = lmd.Archive('out')
 
     with open("processed.dat", "a+") as pf:
-        archive = process_pdfs(pdf_list, archive)
+        url_batches = chunks(url_list, batch_size)
+        for batch in url_batches:
+            print("Scraping PDF batch...")
+            batch_pdf_list = scrape_pdfs(batch)
+            print("Processing PDF batch...")
+            process_pdfs(batch_pdf_list, archive)
+            pf.writelines(batch)
 
 if __name__ == '__main__':
     fire.Fire(process)
