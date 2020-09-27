@@ -10,17 +10,25 @@ MAX_RECORD_NUMBER = 3884001
 
 def chunks(lst, n):
     """Yield successive n-sized chunks from lst."""
+    r = None
     for i in range(0, len(lst), n):
+        r = i + n
         yield lst[i:i + n]
+    yield lst[r:]
 
 def scrape_pdf_list(indices):
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     base_url = 'https://digitallibrary.un.org/record/'
 
-    print("Checking UN Library for PDFs at indices ", indices[0], "to ", indices[-1], "...")
+    if len(indices) > 1:
+        print("Checking UN Library for PDFs at indices ", indices[0], "to ", indices[-1], "...")
+    elif len(indices) == 1:
+        print("Checking UN Library for PDFs at index ", indices[0], "...")
+    else:
+        return [], []
 
-    return [str(index) + '\n' for index in indices], [base_url + index + '\n' for index in indices]
+    return [str(index) + '\n' for index in indices], [base_url + str(index) + '\n' for index in indices]
 
 def scrape_pdf(url):
     return './pdfs'
