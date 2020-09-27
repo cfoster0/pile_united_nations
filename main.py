@@ -34,7 +34,7 @@ class NetworkException(BaseException):
                       max_tries=6)
 def scrape_pdf_list_item(number):
     url = 'https://digitallibrary.un.org/record/' + str(number) + '/files/'
-    time.sleep(1.0)
+    time.sleep(0.05)
     result = http.request('GET', url)
     if result.status == 200:
         data = result.data
@@ -43,11 +43,11 @@ def scrape_pdf_list_item(number):
         links = [link['href'] for link in links if '.pdf' in link['href']]
         return number, result.status, links
     elif result.status in [403, 429]:
-        raise ScrapingException()
+        raise ScrapingException
     elif result.status in [404, 410]:
         return number, result.status, []
     else:
-        raise NetworkException()
+        raise NetworkException
 
 def scrape_pdf_list(indices):
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -59,10 +59,10 @@ def scrape_pdf_list(indices):
     else:
         return [], []
 
-    results = threads.pqdm([[index] for index in indices], scrape_pdf_list_item, n_jobs=4, argument_type='args')
+    results = threads.pqdm([[index] for index in indices], scrape_pdf_list_item, n_jobs=16, argument_type='args')
 
     for result in results:
-        if result is not tuple:
+        if type(result) is not tuple:
             raise result
 
     non_flattened = [links for number, status, links in results]
@@ -85,7 +85,7 @@ def process_pdfs(pdf_list, archive):
     archive.commit()
     return archive
 
-def process(start=MIN_RECORD_NUMBER, end=MAX_RECORD_NUMBER, batch_size=2**5):
+def process(start=MIN_RECORD_NUMBER, end=MAX_RECORD_NUMBER, batch_size=2**8):
     try:
         with open("counts.dat", "r") as cf:
             watermark = int(cf.readlines()[-1].rstrip()) + 1
